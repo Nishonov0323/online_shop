@@ -1,10 +1,11 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-def get_categories_kb(categories, language, parent_id=None):
+def get_categories_kb(categories, language, parent_id=None, show_back=False):
     """Create categories keyboard"""
     keyboard = []
 
+    # Categories list
     for category in categories:
         keyboard.append([
             InlineKeyboardButton(
@@ -13,33 +14,22 @@ def get_categories_kb(categories, language, parent_id=None):
             )
         ])
 
-    # Add back button if this is subcategory
-    if parent_id:
-        if language == 'uz':
+    # Back button
+    if parent_id or show_back:
+        back_text = "🔙 Orqaga" if language == 'uz' else "🔙 Назад"
+        if parent_id:
             keyboard.append([
                 InlineKeyboardButton(
-                    text="🔙 Orqaga",
-                    callback_data=f"category_{parent_id}"
+                    text=back_text,
+                    callback_data=f"back_to_parent_{parent_id}"
                 )
             ])
         else:
             keyboard.append([
                 InlineKeyboardButton(
-                    text="🔙 Назад",
-                    callback_data=f"category_{parent_id}"
+                    text=back_text,
+                    callback_data="back_to_categories"
                 )
             ])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-def get_category_back_kb(language):
-    """Create back to categories keyboard"""
-    if language == 'uz':
-        text = "🔙 Kategoriyalarga qaytish"
-    else:
-        text = "🔙 Вернуться к категориям"
-
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=text, callback_data="back_to_categories")]
-    ])

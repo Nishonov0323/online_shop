@@ -1,27 +1,30 @@
 #!/bin/bash
 
-# Wait for postgres
-if [ "$DATABASE" = "postgres" ] || [ -z "$DATABASE" ]
-then
-    echo "Waiting for postgres..."
+# Wait for database
+while ! nc -z $DB_HOST $DB_PORT; do
+  echo "Waiting for database..."
+  sleep 1
+done
 
-    while ! nc -z $DB_HOST $DB_PORT; do
-      sleep 0.1
-    done
+echo "Database is ready!"
 
-    echo "PostgreSQL started"
-fi
-
-# Apply database migrations
-echo "Applying migrations..."
+# Run migrations
+python manage.py makemigrations
 python manage.py migrate
 
-# Create superuser if doesn't exist
-echo "Creating superuser..."
-python manage.py createsuperuser --noinput || true
+# Create superuser if not exists
+python manage.py shell -c "
+from django.contrib.auth import get_user_model
+User = get_user_model()
+if not User.objects.filter(username='admin').exists():
+    User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
+    print('Superuser created: admin/admin123')
+else:
+    print('Superuser already exists')
+"
 
 # Collect static files
-echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+# Start the application
 exec "$@"

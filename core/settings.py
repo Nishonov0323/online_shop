@@ -123,27 +123,33 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Telegram Bot settings
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+# Telegram Bot Settings
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', 'your-bot-token-here')
 
 # REST Framework settings
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'PAGE_SIZE': 20
 }
 
 # DRF Spectacular settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'E-commerce Bot API',
-    'DESCRIPTION': 'API documentation for E-commerce Bot',
+    'TITLE': 'Online Shop API',
+    'DESCRIPTION': 'Telegram Bot Online Shop API',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(' ')
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only in development

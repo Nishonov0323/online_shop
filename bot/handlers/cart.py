@@ -304,3 +304,165 @@ async def start_checkout(callback: CallbackQuery, state: FSMContext, **kwargs):
 
     except Cart.DoesNotExist:
         await callback.answer(_("Savatchagiz bo'sh."))
+
+# ... mavjud kod davom etadi ...
+async def process_cart_item(callback: CallbackQuery, **kwargs):
+    """Show cart item details"""
+    user = kwargs.get('user')
+    if not user:
+        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
+        return
+
+    try:
+        item_id = int(callback.data.split('_')[1])
+
+        # Get cart item
+        cart_item = await sync_to_async(CartItem.objects.select_related('color__product').get)(id=item_id)
+
+        # Product info
+        product_name = cart_item.color.product.get_name(user.language)
+        color_name = cart_item.color.get_name(user.language)
+        price = cart_item.color.price
+        quantity = cart_item.quantity
+        total = price * quantity
+
+        text = f"<b>{product_name}</b>\n"
+        text += f"<i>{color_name}</i>\n\n"
+        text += f"💰 {_('Narxi')}: {price:,.0f} {_("so\\'m")}\n"
+        text += f"📦 {_('Soni')}: {quantity}\n"
+        text += f"💳 {_('Jami')}: {total:,.0f} {_("so\\'m")}"
+
+        await callback.message.edit_text(
+            text,
+            reply_markup=
+        get_cart_item_kb(cart_item, user.language)
+        )
+
+    except CartItem.DoesNotExist:
+        await callback.answer(_("Element topilmadi"))
+    except Exception as e:
+        await callback.answer(_("Xatolik yuz berdi"))
+
+
+async def remove_from_cart(callback: CallbackQuery, **kwargs):
+    """Remove item from cart"""
+    user = kwargs.get('user')
+    if not user:
+        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
+        return
+
+    try:
+        item_id = int(callback.data.split('_')[1])
+
+        # Get and delete cart item
+        cart_item = await sync_to_async(CartItem.objects.select_related('color__product').get)(id=item_id)
+        product_name = cart_item.color.product.get_name(user.language)
+
+        await sync_to_async(cart_item.delete)()
+
+        await callback.answer(_("✅ {} savatchadan o'chirildi").format(product_name))
+
+        # Show updated cart
+        await show_cart_callback(callback, **kwargs)
+
+    except CartItem.DoesNotExist:
+        await callback.answer(_("Element topilmadi"))
+    except Exception as e:
+        await callback.answer(_("Xatolik yuz berdi"))
+
+
+async def change_quantity(callback: CallbackQuery, **kwargs):
+    """Change item quantity"""
+    user = kwargs.get('user')
+    if not user:
+        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
+        return
+
+    try:
+        # Parse callback data: quantity_action_itemID
+        parts = callback.data.split('_')
+        action = parts[1]  # minus or plus
+        item_id = int(parts[2])
+
+        # Get cart item
+        cart_item = await sync_to_async(CartItem.objects.get)(id=item_id)
+
+        if action == "minus":
+            if cart_item.quantity > 1:
+                cart_item.quantity -= 1
+                await sync_to_async(cart_item.save)()
+                await callback.answer(_("Soni kamaytrildi"))
+            else:
+                await callback.answer(_("Minimal soni 1 ta"))
+        elif action == "plus":
+            cart_item.quantity += 1
+            await sync_to_async(cart_item.save)()
+            await callback.answer(_("Soni ko'paytirildi"))
+
+        # Update display
+        await process_cart_item(callback, **kwargs)
+
+    except CartItem.DoesNotExist:
+        await callback.answer(_("Element topilmadi"))
+    except Exception as e:
+        await callback.answer(_("Xatolik yuz berdi"))
+
+
+async def clear_cart(callback: CallbackQuery, **kwargs):
+    """Clear entire cart"""
+    user = kwargs.get('user')
+    if not user:
+        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
+        return
+
+    try:
+        # Get cart and delete all items
+        cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
+        await sync_to_async(cart.items.all().delete)()
+
+        await callback.answer(_("✅ Savatcha tozalandi"))
+
+        # Show empty cart message
+        await callback.message.edit_text(
+            _("Sizning savatchagiz bo'sh."),
+            reply_markup=get_main_menu_kb(user.language)
+        )
+
+    except Cart.DoesNotExist:
+        await callback.answer(_("Savatcha topilmadi"))
+    except Exception as e:
+        await callback.answer(_("Xatolik yuz berdi"))
+
+
+async def start_checkout(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Start checkout process"""
+    user = kwargs.get('user')
+    if not user:
+        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
+        return
+
+    try:
+        # Check if cart has items
+        cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
+        cart_items = await sync_to_async(lambda: list(cart.items.all()))()
+
+        if not cart_items:
+            await callback.answer(_("Savatchagiz bo'sh"))
+            return
+
+        # Ask for delivery address
+        if user.language == 'uz':
+            text = "📍 Yetkazib berish manzilini kiriting:"
+        else:
+            text = "📍 Введите адрес доставки:"
+
+        await callback.message.edit_text(text)
+
+        # Set state to waiting for address
+        from bot.handlers.cart import OrderStates
+        await state.set_state(OrderStates.waiting_for_address)
+
+    except Cart.DoesNotExist:
+        await callback.answer(_("Savatcha topilmadi"))
+    except Exception as e:
+        await callback.answer(_("Xatolik yuz berdi"))
