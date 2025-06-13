@@ -1,0 +1,186 @@
+# This file contains translations for Uzbek language.
+# Copyright (C) 2025
+# This file is distributed under the same license as the ecommerce_bot package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ecommerce_bot 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-10 10:00+0500\n"
+"PO-Revision-Date: 2025-06-10 10:00+0500\n"
+"Last-Translator: \n"
+"Language-Team: Uzbek\n"
+"Language: uz\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Foydalanuvchi"
+msgstr "Foydalanuvchi"
+
+msgid "Foydalanuvchilar"
+msgstr "Foydalanuvchilar"
+
+msgid "Kategoriya"
+msgstr "Kategoriya"
+
+msgid "Kategoriyalar"
+msgstr "Kategoriyalar"
+
+msgid "Mahsulot"
+msgstr "Mahsulot"
+
+msgid "Mahsulotlar"
+msgstr "Mahsulotlar"
+
+msgid "Rang"
+msgstr "Rang"
+
+msgid "Ranglar"
+msgstr "Ranglar"
+
+msgid "Rang rasmi"
+msgstr "Rang rasmi"
+
+msgid "Rang rasmlari"
+msgstr "Rang rasmlari"
+
+msgid "Savatcha"
+msgstr "Savatcha"
+
+msgid "Savatchalar"
+msgstr "Savatchalar"
+
+msgid "Savatcha elementi"
+msgstr "Savatcha elementi"
+
+msgid "Savatcha elementlari"
+msgstr "Savatcha elementlari"
+
+msgid "Buyurtma"
+msgstr "Buyurtma"
+
+msgid "Buyurtmalar"
+msgstr "Buyurtmalar"
+
+msgid "Buyurtma elementi"
+msgstr "Buyurtma elementi"
+
+msgid "Buyurtma elementlari"
+msgstr "Buyurtma elementlari"
+
+msgid "Yangi"
+msgstr "Yangi"
+
+msgid "Jarayonda"
+msgstr "Jarayonda"
+
+msgid "Yetkazilmoqda"
+msgstr "Yetkazilmoqda"
+
+msgid "Bajarildi"
+msgstr "Bajarildi"
+
+msgid "Bekor qilindi"
+msgstr "Bekor qilindi"
+
+msgid "Xush kelibsiz, {name}!"
+msgstr "Xush kelibsiz, {name}!"
+
+msgid "Kategoriyani tanlang:"
+msgstr "Kategoriyani tanlang:"
+
+msgid "Hozircha kategoriyalar mavjud emas."
+msgstr "Hozircha kategoriyalar mavjud emas."
+
+msgid "{category} bo'limidagi kategoriyalar:"
+msgstr "{category} bo'limidagi kategoriyalar:"
+
+msgid "Kategoriya topilmadi."
+msgstr "Kategoriya topilmadi."
+
+msgid "{category} kategoriyasidagi mahsulotlar:"
+msgstr "{category} kategoriyasidagi mahsulotlar:"
+
+msgid "Bu kategoriyada hech qanday mahsulot yo'q."
+msgstr "Bu kategoriyada hech qanday mahsulot yo'q."
+
+msgid "Tavsif mavjud emas."
+msgstr "Tavsif mavjud emas."
+
+msgid "Mahsulot topilmadi."
+msgstr "Mahsulot topilmadi."
+
+msgid "Mahsulot yoki rang topilmadi."
+msgstr "Mahsulot yoki rang topilmadi."
+
+msgid "Mahsulot savatchaga qo'shildi!"
+msgstr "Mahsulot savatchaga qo'shildi!"
+
+msgid "Sizning savatchangiz:"
+msgstr "Sizning savatchangiz:"
+
+msgid "Sizning savatchagiz bo'sh."
+msgstr "Sizning savatchagiz bo'sh."
+
+msgid "Savatcha tozalandi."
+msgstr "Savatcha tozalandi."
+
+msgid "Savatcha allaqachon bo'sh."
+msgstr "Savatcha allaqachon bo'sh."
+
+msgid "Mahsulot savatchadan o'chirildi."
+msgstr "Mahsulot savatchadan o'chirildi."
+
+msgid "Miqdor oshirildi."
+msgstr "Miqdor oshirildi."
+
+msgid "Miqdor kamaytirildi."
+msgstr "Miqdor kamaytirildi."
+
+msgid "Miqdor kamida 1 bo'lishi kerak."
+msgstr "Miqdor kamida 1 bo'lishi kerak."
+
+msgid "Buyurtma berish uchun yetkazib berish manzilini kiriting:"
+msgstr "Buyurtma berish uchun yetkazib berish manzilini kiriting:"
+
+msgid "Savatchagiz bo'sh."
+msgstr "Savatchagiz bo'sh."
+
+msgid "Buyurtma bekor qilindi."
+msgstr "Buyurtma bekor qilindi."
+
+msgid "Iltimos, tugmalardan birini tanlang."
+msgstr "Iltimos, tugmalardan birini tanlang."
+
+msgid "Buyurtma muvaffaqiyatli yaratildi!\nBuyurtma raqami: {order_id}\n\nTez orada operatorlarimiz siz bilan bog'lanishadi."
+msgstr "Buyurtma muvaffaqiyatli yaratildi!\nBuyurtma raqami: {order_id}\n\nTez orada operatorlarimiz siz bilan bog'lanishadi."
+
+msgid "Afsuski, buyurtmani yaratishda xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring."
+msgstr "Afsuski, buyurtmani yaratishda xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring."
+
+msgid "Narxi"
+msgstr "Narxi"
+
+msgid "so'm"
+msgstr "so'm"
+
+msgid "Soni"
+msgstr "Soni"
+
+msgid "Jami"
+msgstr "Jami"
+
+msgid "Buyurtmangiz:"
+msgstr "Buyurtmangiz:"
+
+msgid "Yetkazib berish manzili"
+msgstr "Yetkazib berish manzili"
+
+msgid "Jami summa"
+msgstr "Jami summa"
+
+msgid "Buyurtmani tasdiqlaysizmi?"
+msgstr "Buyurtmani tasdiqlaysizmi?"

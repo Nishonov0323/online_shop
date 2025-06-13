@@ -1,0 +1,186 @@
+# This file contains translations for Russian language.
+# Copyright (C) 2025
+# This file is distributed under the same license as the ecommerce_bot package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ecommerce_bot 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-10 10:00+0500\n"
+"PO-Revision-Date: 2025-06-10 10:00+0500\n"
+"Last-Translator: \n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
+
+msgid "Foydalanuvchi"
+msgstr "Пользователь"
+
+msgid "Foydalanuvchilar"
+msgstr "Пользователи"
+
+msgid "Kategoriya"
+msgstr "Категория"
+
+msgid "Kategoriyalar"
+msgstr "Категории"
+
+msgid "Mahsulot"
+msgstr "Товар"
+
+msgid "Mahsulotlar"
+msgstr "Товары"
+
+msgid "Rang"
+msgstr "Цвет"
+
+msgid "Ranglar"
+msgstr "Цвета"
+
+msgid "Rang rasmi"
+msgstr "Изображение цвета"
+
+msgid "Rang rasmlari"
+msgstr "Изображения цветов"
+
+msgid "Savatcha"
+msgstr "Корзина"
+
+msgid "Savatchalar"
+msgstr "Корзины"
+
+msgid "Savatcha elementi"
+msgstr "Элемент корзины"
+
+msgid "Savatcha elementlari"
+msgstr "Элементы корзины"
+
+msgid "Buyurtma"
+msgstr "Заказ"
+
+msgid "Buyurtmalar"
+msgstr "Заказы"
+
+msgid "Buyurtma elementi"
+msgstr "Элемент заказа"
+
+msgid "Buyurtma elementlari"
+msgstr "Элементы заказа"
+
+msgid "Yangi"
+msgstr "Новый"
+
+msgid "Jarayonda"
+msgstr "В обработке"
+
+msgid "Yetkazilmoqda"
+msgstr "Доставляется"
+
+msgid "Bajarildi"
+msgstr "Выполнен"
+
+msgid "Bekor qilindi"
+msgstr "Отменен"
+
+msgid "Xush kelibsiz, {name}!"
+msgstr "Добро пожаловать, {name}!"
+
+msgid "Kategoriyani tanlang:"
+msgstr "Выберите категорию:"
+
+msgid "Hozircha kategoriyalar mavjud emas."
+msgstr "На данный момент категорий нет."
+
+msgid "{category} bo'limidagi kategoriyalar:"
+msgstr "Категории в разделе {category}:"
+
+msgid "Kategoriya topilmadi."
+msgstr "Категория не найдена."
+
+msgid "{category} kategoriyasidagi mahsulotlar:"
+msgstr "Товары в категории {category}:"
+
+msgid "Bu kategoriyada hech qanday mahsulot yo'q."
+msgstr "В этой категории нет товаров."
+
+msgid "Tavsif mavjud emas."
+msgstr "Описание отсутствует."
+
+msgid "Mahsulot topilmadi."
+msgstr "Товар не найден."
+
+msgid "Mahsulot yoki rang topilmadi."
+msgstr "Товар или цвет не найден."
+
+msgid "Mahsulot savatchaga qo'shildi!"
+msgstr "Товар добавлен в корзину!"
+
+msgid "Sizning savatchangiz:"
+msgstr "Ваша корзина:"
+
+msgid "Sizning savatchagiz bo'sh."
+msgstr "Ваша корзина пуста."
+
+msgid "Savatcha tozalandi."
+msgstr "Корзина очищена."
+
+msgid "Savatcha allaqachon bo'sh."
+msgstr "Корзина уже пуста."
+
+msgid "Mahsulot savatchadan o'chirildi."
+msgstr "Товар удален из корзины."
+
+msgid "Miqdor oshirildi."
+msgstr "Количество увеличено."
+
+msgid "Miqdor kamaytirildi."
+msgstr "Количество уменьшено."
+
+msgid "Miqdor kamida 1 bo'lishi kerak."
+msgstr "Количество должно быть не менее 1."
+
+msgid "Buyurtma berish uchun yetkazib berish manzilini kiriting:"
+msgstr "Введите адрес доставки для оформления заказа:"
+
+msgid "Savatchagiz bo'sh."
+msgstr "Ваша корзина пуста."
+
+msgid "Buyurtma bekor qilindi."
+msgstr "Заказ отменен."
+
+msgid "Iltimos, tugmalardan birini tanlang."
+msgstr "Пожалуйста, выберите одну из кнопок."
+
+msgid "Buyurtma muvaffaqiyatli yaratildi!\nBuyurtma raqami: {order_id}\n\nTez orada operatorlarimiz siz bilan bog'lanishadi."
+msgstr "Заказ успешно создан!\nНомер заказа: {order_id}\n\nНаши операторы скоро свяжутся с вами."
+
+msgid "Afsuski, buyurtmani yaratishda xatolik yuz berdi. Iltimos, qaytadan urinib ko'ring."
+msgstr "К сожалению, произошла ошибка при создании заказа. Пожалуйста, попробуйте еще раз."
+
+msgid "Narxi"
+msgstr "Цена"
+
+msgid "so'm"
+msgstr "сум"
+
+msgid "Soni"
+msgstr "Количество"
+
+msgid "Jami"
+msgstr "Итого"
+
+msgid "Buyurtmangiz:"
+msgstr "Ваш заказ:"
+
+msgid "Yetkazib berish manzili"
+msgstr "Адрес доставки"
+
+msgid "Jami summa"
+msgstr "Итоговая сумма"
+
+msgid "Buyurtmani tasdiqlaysizmi?"
+msgstr "Подтверждаете заказ?"
