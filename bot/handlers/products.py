@@ -1,13 +1,14 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.context import FSMContext
-from django.utils.translation import gettext as _
 from asgiref.sync import sync_to_async
+from django.utils.translation import gettext as _
+from aiogram.types import InputFile
+import os
 
-from store.models import Category, Product, Color, Cart, CartItem
-from bot.keyboards.products import get_product_colors_kb, get_product_actions_kb, get_add_to_cart_kb
 from bot.keyboards.categories import get_categories_kb
 from bot.keyboards.common import get_back_btn
+from bot.keyboards.products import get_product_colors_kb, get_product_actions_kb, get_add_to_cart_kb
+from store.models import Category, Product, Color, Cart, CartItem
 
 
 def get_products_router():
@@ -101,42 +102,6 @@ async def process_product(callback: CallbackQuery, **kwargs):
     await callback.answer()
 
 
-# process_color funksiyasida ham shunga o'xshash o'zgarish:
-async def process_color(callback: CallbackQuery, **kwargs):
-    """Process color selection"""
-    # ... boshqa kod ...
-
-    if has_images:
-        # Get images using sync_to_async
-        color_images = await sync_to_async(lambda: list(color.images.all()))()
-        first_image = color_images[0]
-
-        # Send photo with caption
-        await callback.message.answer_photo(
-            photo=first_image.image.url,  # .url qo'shish
-            caption=caption,
-            reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
-        )
-
-        # Send other images if available
-        for img in color_images[1:]:
-            await callback.message.answer_photo(photo=img.image.url)  # .url qo'shish
-    else:
-        # If no images, use product main image
-        if product.main_image:
-            await callback.message.answer_photo(
-                photo=product.main_image.url,  # .url qo'shish
-                caption=caption,
-                reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
-            )
-        else:
-            # Send text message if no images at all
-            await callback.message.answer(
-                caption,
-                reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
-            )
-
-
 # back_to_product funksiyasini to'g'rilash (callback.data ni o'zgartirmaslik):
 async def back_to_product(callback: CallbackQuery, **kwargs):
     """Return to product details"""
@@ -209,25 +174,71 @@ async def process_color(callback: CallbackQuery, **kwargs):
 
             # Send with add to cart button
             await callback.message.delete()  # Delete previous message
-            await callback.message.answer_photo(
-                photo=first_image.image,
-                caption=caption,
-                reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
-            )
+
+            # Rasm URL'ini tekshirish va InputFile ishlatish
+            if first_image.image and first_image.image.name:
+                try:
+                    # Rasm fayli mavjudligini tekshirish
+                    image_path = first_image.image.path
+                    if os.path.exists(image_path):
+                        # InputFile ishlatish
+                        photo = InputFile(image_path)
+                        await callback.message.answer_photo(
+                            photo=photo,
+                            caption=caption,
+                            reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                        )
+                    else:
+                        # Rasm mavjud bo'lmasa, faqat matn yuborish
+                        await callback.message.answer(
+                            caption,
+                            reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                        )
+                except Exception as e:
+                    # Xatolik bo'lsa, faqat matn yuborish
+                    await callback.message.answer(
+                        caption,
+                        reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                    )
+            else:
+                # Rasm mavjud bo'lmasa, faqat matn yuborish
+                await callback.message.answer(
+                    caption,
+                    reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                )
 
             # Send other images if available
             for img in color_images[1:]:
-                await callback.message.answer_photo(photo=img.image)
+                if img.image and img.image.name and os.path.exists(img.image.path):
+                    try:
+                        photo = InputFile(img.image.path)
+                        await callback.message.answer_photo(photo=photo)
+                    except Exception:
+                        pass  # Skip if error
         else:
             # If no images, use product main image
             caption = f"<b>{product.get_name(user.language)}</b>\n" \
                       f"<i>{color_name}</i>\n" \
                       f"{_('Narxi')}: {price:,.0f} {_('so\'m')}"
 
-            await callback.message.edit_caption(
-                caption=caption,
-                reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
-            )
+            if product.main_image and product.main_image.name and os.path.exists(product.main_image.path):
+                try:
+                    photo = InputFile(product.main_image.path)
+                    await callback.message.answer_photo(
+                        photo=photo,
+                        caption=caption,
+                        reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                    )
+                except Exception:
+                    await callback.message.answer(
+                        caption,
+                        reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                    )
+            else:
+                await callback.message.edit_caption(
+                    caption=caption,
+                    reply_markup=get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+                )
 
     except (Color.DoesNotExist, Product.DoesNotExist):
         await callback.answer(_("Mahsulot yoki rang topilmadi."))
@@ -244,6 +255,7 @@ async def process_add_to_cart(callback: CallbackQuery, **kwargs):
         return
 
     color_id = int(callback.data.split('_')[3])
+    global quantity
     quantity = int(callback.data.split('_')[4]) if len(callback.data.split('_')) > 4 else 1
 
     try:
