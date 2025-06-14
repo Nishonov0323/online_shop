@@ -1,10 +1,12 @@
 from aiogram import Router, F, types
-from aiogram.types import Message, CallbackQuery, KeyboardButton
+from aiogram.types import Message, CallbackQuery, KeyboardButton, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from django.utils.translation import gettext as _
 from asgiref.sync import sync_to_async
 from django.conf import settings
+import os
+from PIL import Image
 
 from store.models import Cart, CartItem
 from bot.keyboards.cart import get_cart_kb, get_cart_item_kb
@@ -31,29 +33,57 @@ def get_cart_router():
     return router
 
 
-def get_full_image_url(image_field):
-    """Get full URL for image field"""
+def get_image_file_path(image_field):
+    """Get file path for image field"""
     if not image_field:
         return None
 
     try:
-        # Agar MEDIA_URL to'liq URL bo'lsa (http bilan boshlansa)
-        if image_field.url.startswith('http'):
-            return image_field.url
-
-        # Aks holda, to'liq URL yaratish
-        base_url = getattr(settings, 'BASE_URL', 'http://127.0.0.1:8000')
-        return f"{base_url.rstrip('/')}{image_field.url}"
-    except Exception as e:
-        print(f"DEBUG: Error getting image URL: {e}")
+        # Get full file path
+        file_path = os.path.join(settings.MEDIA_ROOT, str(image_field))
+        if os.path.exists(file_path):
+            return file_path
         return None
+    except Exception as e:
+        print(f"DEBUG: Error getting image file path: {e}")
+        return None
+
+
+def validate_image_for_telegram(file_path):
+    """Validate image for Telegram compatibility"""
+    if not file_path or not os.path.exists(file_path):
+        return False
+
+    try:
+        # Check file size (max 10MB for photos)
+        file_size = os.path.getsize(file_path)
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            print(f"DEBUG: File too large: {file_size} bytes")
+            return False
+
+        # Check if it's a valid image
+        with Image.open(file_path) as img:
+            # Check format
+            if img.format not in ['JPEG', 'PNG', 'GIF', 'WEBP']:
+                print(f"DEBUG: Unsupported format: {img.format}")
+                return False
+
+            # Check dimensions (max 10000x10000)
+            if img.width > 10000 or img.height > 10000:
+                print(f"DEBUG: Image too large: {img.width}x{img.height}")
+                return False
+
+        return True
+    except Exception as e:
+        print(f"DEBUG: Error validating image: {e}")
+        return False
 
 
 @sync_to_async
 def get_cart_items_data(cart, language):
     """Get cart items data in a format suitable for keyboards"""
     items_data = []
-    for item in cart.items.all():
+    for item in cart.items.select_related('color__product').all():
         items_data.append({
             'item_id': item.id,
             'product_name': item.color.product.get_name(language),
@@ -177,12 +207,12 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
         def get_cart_item_data():
             cart_item = CartItem.objects.select_related('color__product').get(id=item_id)
             has_images = cart_item.color.images.exists()
-            first_image_url = None
+            first_image_path = None
 
             if has_images:
                 first_image = cart_item.color.images.first()
                 if first_image:
-                    first_image_url = get_full_image_url(first_image.image)
+                    first_image_path = get_image_file_path(first_image.image)
 
             return {
                 'id': cart_item.id,
@@ -191,7 +221,7 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
                 'price': cart_item.color.price,
                 'quantity': cart_item.quantity,
                 'has_images': has_images,
-                'first_image_url': first_image_url
+                'first_image_path': first_image_path
             }
 
         item_data = await get_cart_item_data()
@@ -206,24 +236,28 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
             f"{_('Jami')}: {total:,.0f} {_('so\'m')}"
         )
 
-        if item_data['has_images'] and item_data['first_image_url']:
+        keyboard = get_cart_item_kb(item_data['id'], user.language)
+
+        if (item_data['has_images'] and
+                item_data['first_image_path'] and
+                validate_image_for_telegram(item_data['first_image_path'])):
             try:
                 await callback.message.delete()
                 await callback.message.answer_photo(
-                    photo=item_data['first_image_url'],
+                    photo=FSInputFile(item_data['first_image_path']),
                     caption=message_text,
-                    reply_markup=get_cart_item_kb(item_data['id'], user.language)
+                    reply_markup=keyboard
                 )
             except Exception as e:
                 print(f"DEBUG: Error sending cart item photo: {e}")
                 await callback.message.edit_text(
                     message_text,
-                    reply_markup=get_cart_item_kb(item_data['id'], user.language)
+                    reply_markup=keyboard
                 )
         else:
             await callback.message.edit_text(
                 message_text,
-                reply_markup=get_cart_item_kb(item_data['id'], user.language)
+                reply_markup=keyboard
             )
 
     except CartItem.DoesNotExist:

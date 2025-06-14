@@ -105,6 +105,63 @@ async def show_category_products(message: Message, user, category):
             )
 
 
+async def send_product_message(message_or_callback, text_content, keyboard, image_path=None, is_callback=False):
+    """Universal function to send product message with or without image"""
+    try:
+        if image_path and validate_image_for_telegram(image_path):
+            # Try to send with image
+            if is_callback:
+                await message_or_callback.message.delete()
+                await message_or_callback.message.answer_photo(
+                    photo=FSInputFile(image_path),
+                    caption=text_content,
+                    reply_markup=keyboard
+                )
+            else:
+                await message_or_callback.answer_photo(
+                    photo=FSInputFile(image_path),
+                    caption=text_content,
+                    reply_markup=keyboard
+                )
+            print("DEBUG: Successfully sent message with photo")
+            return True
+        else:
+            # Send text message
+            if is_callback:
+                # Always delete and create new message for callbacks
+                await message_or_callback.message.delete()
+                await message_or_callback.message.answer(
+                    text_content,
+                    reply_markup=keyboard
+                )
+            else:
+                await message_or_callback.answer(
+                    text_content,
+                    reply_markup=keyboard
+                )
+            print("DEBUG: Successfully sent text message")
+            return True
+    except Exception as e:
+        print(f"DEBUG: Error in send_product_message: {e}")
+        # Final fallback - just send text
+        try:
+            if is_callback:
+                await message_or_callback.message.delete()
+                await message_or_callback.message.answer(
+                    text_content,
+                    reply_markup=keyboard
+                )
+            else:
+                await message_or_callback.answer(
+                    text_content,
+                    reply_markup=keyboard
+                )
+            return True
+        except Exception as e2:
+            print(f"DEBUG: Final fallback failed: {e2}")
+            return False
+
+
 async def process_product(callback: CallbackQuery, **kwargs):
     """Process product selection"""
     print(f"DEBUG: process_product called with data: {callback.data}")
@@ -140,31 +197,19 @@ async def process_product(callback: CallbackQuery, **kwargs):
         text_content = f"<b>{name}</b>\n\n{description}"
         keyboard = get_product_colors_kb(colors, user.language, product.id, category_id)
 
-        # Try to send with image first
+        # Get image path if available
+        image_path = None
         if product.main_image:
-            file_path = get_image_file_path(product.main_image)
-            print(f"DEBUG: Product image file path: {file_path}")
+            image_path = get_image_file_path(product.main_image)
+            print(f"DEBUG: Product image file path: {image_path}")
 
-            if file_path and validate_image_for_telegram(file_path):
-                try:
-                    await callback.message.delete()
-                    await callback.message.answer_photo(
-                        photo=FSInputFile(file_path),
-                        caption=text_content,
-                        reply_markup=keyboard
-                    )
-                    print("DEBUG: Successfully sent product photo")
-                    await callback.answer()
-                    return
-                except Exception as e:
-                    print(f"DEBUG: Error sending photo with FSInputFile: {e}")
-
-        # Fallback to text message
-        print("DEBUG: Sending text message instead of photo")
-        await callback.message.edit_text(
-            text_content,
-            reply_markup=keyboard
+        # Send message
+        success = await send_product_message(
+            callback, text_content, keyboard, image_path, is_callback=True
         )
+
+        if not success:
+            await callback.answer(_("Xatolik yuz berdi."))
 
     except Product.DoesNotExist:
         print("DEBUG: Product not found")
@@ -202,20 +247,22 @@ async def process_color(callback: CallbackQuery, **kwargs):
 
         print(f"DEBUG: Parsed IDs - color: {color_id}, product: {product_id}, category: {category_id}")
 
-        # Get color and product using sync_to_async
-        color = await sync_to_async(Color.objects.get)(id=color_id)
-        product = await sync_to_async(Product.objects.get)(id=product_id)
+        # Get color and product using sync_to_async with select_related
+        color = await sync_to_async(
+            lambda: Color.objects.select_related('product').get(id=color_id)
+        )()
 
         # Get color details
         color_name = color.get_name(user.language)
         price = color.price
+        product_name = color.product.get_name(user.language)
 
         # Caption for the image/message
-        caption = f"<b>{product.get_name(user.language)}</b>\n" \
+        caption = f"<b>{product_name}</b>\n" \
                   f"<i>{color_name}</i>\n" \
                   f"{_('Narxi')}: {price:,.0f} {_('so\'m')}"
 
-        keyboard = get_add_to_cart_kb(color.id, product.id, category_id, user.language)
+        keyboard = get_add_to_cart_kb(color.id, product_id, category_id, user.language)
 
         # Always delete previous message
         await callback.message.delete()
@@ -223,6 +270,8 @@ async def process_color(callback: CallbackQuery, **kwargs):
         # Check for color images
         has_images = await sync_to_async(lambda: color.images.exists())()
         print(f"DEBUG: Color has images: {has_images}")
+
+        image_sent = False
 
         if has_images:
             # Get images using sync_to_async
@@ -241,6 +290,7 @@ async def process_color(callback: CallbackQuery, **kwargs):
                             reply_markup=keyboard
                         )
                         print("DEBUG: Successfully sent color photo")
+                        image_sent = True
 
                         # Send additional images without caption
                         for additional_image in color_images[1:]:
@@ -252,16 +302,14 @@ async def process_color(callback: CallbackQuery, **kwargs):
                                     )
                                 except Exception as e:
                                     print(f"DEBUG: Error sending additional image: {e}")
-
-                        await callback.answer()
-                        return
+                        break
                     except Exception as e:
                         print(f"DEBUG: Error sending color photo: {e}")
                         continue
 
-        # If no valid color images, try product main image
-        if product.main_image:
-            file_path = get_image_file_path(product.main_image)
+        # If no color images sent, try product main image
+        if not image_sent and color.product.main_image:
+            file_path = get_image_file_path(color.product.main_image)
             if file_path and validate_image_for_telegram(file_path):
                 try:
                     await callback.message.answer_photo(
@@ -270,17 +318,17 @@ async def process_color(callback: CallbackQuery, **kwargs):
                         reply_markup=keyboard
                     )
                     print("DEBUG: Successfully sent product main image")
-                    await callback.answer()
-                    return
+                    image_sent = True
                 except Exception as e:
                     print(f"DEBUG: Error sending product main image: {e}")
 
-        # Fallback to text message
-        print("DEBUG: Sending text message instead of photo")
-        await callback.message.answer(
-            caption,
-            reply_markup=keyboard
-        )
+        # If no image sent, send text message
+        if not image_sent:
+            print("DEBUG: Sending text message instead of photo")
+            await callback.message.answer(
+                caption,
+                reply_markup=keyboard
+            )
 
     except (Color.DoesNotExist, Product.DoesNotExist) as e:
         print(f"DEBUG: Object not found: {e}")
@@ -320,19 +368,14 @@ async def process_add_to_cart(callback: CallbackQuery, **kwargs):
 
         print(f"DEBUG: Adding color_id: {color_id} to cart")
 
-        # Test: Avval color mavjudligini tekshirish
-        try:
-            color = await sync_to_async(Color.objects.get)(id=color_id)
-            print(f"DEBUG: Color found: {color.name_uz} - {color.price}")
-        except Color.DoesNotExist:
-            print(f"DEBUG: Color not found with id: {color_id}")
-            await callback.answer(_("Mahsulot topilmadi."))
-            return
-
-        # Test: Cart yaratish yoki olish
+        # Test: Cart yaratish yoki olish va product ma'lumotlarini olish
         @sync_to_async
         def add_to_cart():
             print(f"DEBUG: Creating/getting cart for user: {user.telegram_id}")
+
+            # Get color with related product data
+            color = Color.objects.select_related('product').get(id=color_id)
+            print(f"DEBUG: Color found: {color.name_uz} - {color.price}")
 
             # Get or create active cart for user
             cart, created = Cart.objects.get_or_create(
@@ -355,23 +398,32 @@ async def process_add_to_cart(callback: CallbackQuery, **kwargs):
                 cart_item.save()
                 print(f"DEBUG: Updated quantity to: {cart_item.quantity}")
 
-            return cart_item
+            # Return cart item with product and color info
+            return {
+                'cart_item': cart_item,
+                'product_name': color.product.get_name(user.language),
+                'color_name': color.get_name(user.language),
+                'price': color.price,
+                'quantity': cart_item.quantity
+            }
 
-        cart_item = await add_to_cart()
+        result = await add_to_cart()
+        cart_item = result['cart_item']
         print(f"DEBUG: Successfully added to cart - item_id: {cart_item.id}")
 
         # Success message
         await callback.answer(_("Mahsulot savatchaga qo'shildi!"), show_alert=True)
 
         # Optional: Show updated cart info
-        product_name = color.product.get_name(user.language)
-        color_name = color.get_name(user.language)
         await callback.message.answer(
-            f"✅ {product_name} ({color_name}) savatchaga qo'shildi!\n"
-            f"Miqdor: {cart_item.quantity}\n"
-            f"Narxi: {color.price:,.0f} so'm"
+            f"✅ {result['product_name']} ({result['color_name']}) savatchaga qo'shildi!\n"
+            f"Miqdor: {result['quantity']}\n"
+            f"Narxi: {result['price']:,.0f} so'm"
         )
 
+    except Color.DoesNotExist:
+        print(f"DEBUG: Color not found with id: {color_id}")
+        await callback.answer(_("Mahsulot topilmadi."))
     except Exception as e:
         print(f"DEBUG: Error in process_add_to_cart: {str(e)}")
         import traceback
@@ -443,27 +495,18 @@ async def process_product_direct(callback: CallbackQuery, user, product, categor
         text_content = f"<b>{name}</b>\n\n{description}"
         keyboard = get_product_colors_kb(colors, user.language, product.id, category_id)
 
-        # Try to send with image first
+        # Get image path if available
+        image_path = None
         if product.main_image:
-            file_path = get_image_file_path(product.main_image)
-            if file_path and validate_image_for_telegram(file_path):
-                try:
-                    await callback.message.delete()
-                    await callback.message.answer_photo(
-                        photo=FSInputFile(file_path),
-                        caption=text_content,
-                        reply_markup=keyboard
-                    )
-                    await callback.answer()
-                    return
-                except Exception as e:
-                    print(f"DEBUG: Error sending photo in direct: {e}")
+            image_path = get_image_file_path(product.main_image)
 
-        # Fallback to text message
-        await callback.message.edit_text(
-            text_content,
-            reply_markup=keyboard
+        # Send message
+        success = await send_product_message(
+            callback, text_content, keyboard, image_path, is_callback=True
         )
+
+        if not success:
+            await callback.answer(_("Xatolik yuz berdi."))
 
     except Exception as e:
         print(f"DEBUG: Error in process_product_direct: {e}")

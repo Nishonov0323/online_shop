@@ -96,7 +96,7 @@ async def show_category_products(callback: CallbackQuery, **kwargs):
 
         if children:
             # Show subcategories
-            text = f"{category.get_name(user.language)} → {_('Subkategoriyalar:')}"
+            text = f"{category.get_name(user.language)}"
             from bot.keyboards.categories import get_categories_kb
             await callback.message.edit_text(
                 text,
