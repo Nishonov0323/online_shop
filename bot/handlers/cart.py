@@ -4,6 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from django.utils.translation import gettext as _
 from asgiref.sync import sync_to_async
+from django.conf import settings
 
 from store.models import Cart, CartItem
 from bot.keyboards.cart import get_cart_kb, get_cart_item_kb
@@ -28,6 +29,24 @@ def get_cart_router():
     router.callback_query.register(start_checkout, F.data.startswith("checkout"))
 
     return router
+
+
+def get_full_image_url(image_field):
+    """Get full URL for image field"""
+    if not image_field:
+        return None
+
+    try:
+        # Agar MEDIA_URL to'liq URL bo'lsa (http bilan boshlansa)
+        if image_field.url.startswith('http'):
+            return image_field.url
+
+        # Aks holda, to'liq URL yaratish
+        base_url = getattr(settings, 'BASE_URL', 'http://127.0.0.1:8000')
+        return f"{base_url.rstrip('/')}{image_field.url}"
+    except Exception as e:
+        print(f"DEBUG: Error getting image URL: {e}")
+        return None
 
 
 @sync_to_async
@@ -157,14 +176,22 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
         @sync_to_async
         def get_cart_item_data():
             cart_item = CartItem.objects.select_related('color__product').get(id=item_id)
+            has_images = cart_item.color.images.exists()
+            first_image_url = None
+
+            if has_images:
+                first_image = cart_item.color.images.first()
+                if first_image:
+                    first_image_url = get_full_image_url(first_image.image)
+
             return {
                 'id': cart_item.id,
                 'product_name': cart_item.color.product.get_name(user.language),
                 'color_name': cart_item.color.get_name(user.language),
                 'price': cart_item.color.price,
                 'quantity': cart_item.quantity,
-                'has_images': cart_item.color.images.exists(),
-                'first_image_url': cart_item.color.images.first().image.url if cart_item.color.images.exists() else None
+                'has_images': has_images,
+                'first_image_url': first_image_url
             }
 
         item_data = await get_cart_item_data()
@@ -180,12 +207,19 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
         )
 
         if item_data['has_images'] and item_data['first_image_url']:
-            await callback.message.delete()
-            await callback.message.answer_photo(
-                photo=item_data['first_image_url'],
-                caption=message_text,
-                reply_markup=get_cart_item_kb(item_data['id'], user.language)
-            )
+            try:
+                await callback.message.delete()
+                await callback.message.answer_photo(
+                    photo=item_data['first_image_url'],
+                    caption=message_text,
+                    reply_markup=get_cart_item_kb(item_data['id'], user.language)
+                )
+            except Exception as e:
+                print(f"DEBUG: Error sending cart item photo: {e}")
+                await callback.message.edit_text(
+                    message_text,
+                    reply_markup=get_cart_item_kb(item_data['id'], user.language)
+                )
         else:
             await callback.message.edit_text(
                 message_text,
@@ -281,10 +315,17 @@ async def change_quantity(callback: CallbackQuery, **kwargs):
                 f"{_('Jami')}: {total:,.0f} {_('so\'m')}"
             )
 
-            await callback.message.edit_caption(
-                caption=message_text,
-                reply_markup=get_cart_item_kb(cart_item.id, user.language)
-            )
+            try:
+                await callback.message.edit_caption(
+                    caption=message_text,
+                    reply_markup=get_cart_item_kb(cart_item.id, user.language)
+                )
+            except Exception:
+                # If editing caption fails, try editing text
+                await callback.message.edit_text(
+                    message_text,
+                    reply_markup=get_cart_item_kb(cart_item.id, user.language)
+                )
         else:
             if action_result == "minimum":
                 await callback.answer(_("Miqdor kamida 1 bo'lishi kerak."))

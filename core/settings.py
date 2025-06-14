@@ -24,13 +24,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party apps
     'rest_framework',
     'django_filters',
     'drf_spectacular',
     'corsheaders',
-    
+
     # Project apps
     'store',
     'bot',
@@ -119,6 +119,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Base URL for generating full URLs (especially for images in Telegram bot)
+BASE_URL = os.getenv('BASE_URL', 'http://127.0.0.1:8000')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
