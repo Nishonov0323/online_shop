@@ -21,6 +21,28 @@ def get_orders_router():
     return router
 
 
+@sync_to_async
+def get_cart_summary_data(cart, language):
+    """Get cart summary data for order confirmation"""
+    items_data = []
+    for item in cart.items.select_related('color__product').all():
+        product_name = item.color.product.get_name(language)
+        color_name = item.color.get_name(language)
+        price = item.color.price
+        quantity = item.quantity
+        item_total = price * quantity
+
+        items_data.append({
+            'product_name': product_name,
+            'color_name': color_name,
+            'price': price,
+            'quantity': quantity,
+            'item_total': item_total
+        })
+
+    return items_data
+
+
 async def process_address(message: Message, state: FSMContext, **kwargs):
     """Process delivery address input"""
     # User ni kwargs dan olish
@@ -42,25 +64,19 @@ async def process_address(message: Message, state: FSMContext, **kwargs):
         # Get total price using sync_to_async
         total_price = await sync_to_async(cart.get_total_price)()
 
-        # Get cart items using sync_to_async
-        cart_items = await sync_to_async(lambda: list(cart.items.all()))()
+        # Get cart items data using sync_to_async
+        cart_items_data = await get_cart_summary_data(cart, user.language)
 
+        # Prepare order summary
         items_text = ""
-
-        for item in cart_items:
-            product_name = item.color.product.get_name(user.language)
-            color_name = item.color.get_name(user.language)
-            price = item.color.price
-            quantity = item.quantity
-            item_total = price * quantity
-
-            items_text += f"- {product_name} ({color_name}) x {quantity} = {item_total} {_('so\'m')}\n"
+        for item_data in cart_items_data:
+            items_text += f"- {item_data['product_name']} ({item_data['color_name']}) x {item_data['quantity']} = {item_data['item_total']:,.0f} {_('so\'m')}\n"
 
         confirmation_text = (
             f"{_('Buyurtmangiz:')}\n\n"
             f"{items_text}\n"
             f"{_('Yetkazib berish manzili')}: {message.text}\n\n"
-            f"{_('Jami summa')}: {total_price} {_('so\'m')}\n\n"
+            f"{_('Jami summa')}: {total_price:,.0f} {_('so\'m')}\n\n"
             f"{_('Buyurtmani tasdiqlaysizmi?')}"
         )
 
@@ -152,15 +168,13 @@ async def process_order_confirm(message: Message, state: FSMContext, **kwargs):
         state_data = await state.get_data()
         address = state_data.get('address', '')
 
-        # Get cart using sync_to_async
-        cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
-
-        # Get total price using sync_to_async
-        total_price = await sync_to_async(cart.get_total_price)()
-
-        # Buyurtma yaratish va Cart items ni O'chirish - Django ORM'ni sync_to_async bilan o'rash
+        # Create order and process cart using sync_to_async
         @sync_to_async
         def create_order_and_process_cart():
+            # Get cart
+            cart = Cart.objects.get(user=user, is_active=True)
+            total_price = cart.get_total_price()
+
             # Create order
             order = Order.objects.create(
                 user=user,
@@ -169,7 +183,7 @@ async def process_order_confirm(message: Message, state: FSMContext, **kwargs):
             )
 
             # Create order items
-            for item in cart.items.all():
+            for item in cart.items.select_related('color__product').all():
                 OrderItem.objects.create(
                     order=order,
                     product_name=item.color.product.name_uz,  # Store current names
@@ -184,7 +198,7 @@ async def process_order_confirm(message: Message, state: FSMContext, **kwargs):
 
             return order
 
-        # Buyurtmani yaratish
+        # Create order
         order = await create_order_and_process_cart()
 
         # Send confirmation

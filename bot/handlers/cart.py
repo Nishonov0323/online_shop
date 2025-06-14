@@ -30,39 +30,78 @@ def get_cart_router():
     return router
 
 
+@sync_to_async
+def get_cart_items_data(cart, language):
+    """Get cart items data in a format suitable for keyboards"""
+    items_data = []
+    for item in cart.items.all():
+        items_data.append({
+            'item_id': item.id,
+            'product_name': item.color.product.get_name(language),
+            'color_name': item.color.get_name(language),
+            'price': item.color.price,
+            'quantity': item.quantity,
+        })
+    return items_data
+
+
 async def show_cart(message: Message, **kwargs):
     """Show cart items"""
+    print(f"DEBUG: show_cart called for message: {message.text}")
+
     # User ni kwargs dan olish
     user = kwargs.get('user')
     if not user:
+        print("DEBUG: User not found in show_cart")
         await message.answer(
             _("Iltimos, botni qaytadan ishga tushirish uchun /start buyrug'ini yuboring")
         )
         return
 
+    print(f"DEBUG: User found in show_cart: {user.telegram_id}")
+
     try:
         # Get cart using sync_to_async
         cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
+        print(f"DEBUG: Cart found: {cart.id}")
 
-        # Get cart items and total price using sync_to_async
-        cart_items = await sync_to_async(lambda: list(cart.items.all()))()
-        total_price = await sync_to_async(cart.get_total_price)()
+        # Check if cart has items
+        has_items = await sync_to_async(lambda: cart.items.exists())()
+        print(f"DEBUG: Cart has items: {has_items}")
 
-        if cart_items:
+        if has_items:
+            # Get cart items count
+            items_count = await sync_to_async(lambda: cart.items.count())()
+            print(f"DEBUG: Cart items count: {items_count}")
+
+            # Get cart items data and total price using sync_to_async
+            cart_items_data = await get_cart_items_data(cart, user.language)
+            total_price = await sync_to_async(cart.get_total_price)()
+
+            print(f"DEBUG: Cart items data: {cart_items_data}")
+            print(f"DEBUG: Total price: {total_price}")
+
             await message.answer(
                 _("Sizning savatchangiz:"),
-                reply_markup=get_cart_kb(cart_items, user.language, total_price)
+                reply_markup=get_cart_kb(cart_items_data, user.language, total_price)
             )
         else:
+            print("DEBUG: Cart is empty")
             await message.answer(
                 _("Sizning savatchagiz bo'sh."),
                 reply_markup=get_main_menu_kb(user.language)
             )
     except Cart.DoesNotExist:
+        print("DEBUG: Cart does not exist")
         await message.answer(
             _("Sizning savatchagiz bo'sh."),
             reply_markup=get_main_menu_kb(user.language)
         )
+    except Exception as e:
+        print(f"DEBUG: Error in show_cart: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        await message.answer(f"Xatolik: {str(e)}")
 
 
 async def show_cart_callback(callback: CallbackQuery, **kwargs):
@@ -77,14 +116,17 @@ async def show_cart_callback(callback: CallbackQuery, **kwargs):
         # Get cart using sync_to_async
         cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
 
-        # Get cart items and total price using sync_to_async
-        cart_items = await sync_to_async(lambda: list(cart.items.all()))()
-        total_price = await sync_to_async(cart.get_total_price)()
+        # Check if cart has items
+        has_items = await sync_to_async(lambda: cart.items.exists())()
 
-        if cart_items:
+        if has_items:
+            # Get cart items data and total price using sync_to_async
+            cart_items_data = await get_cart_items_data(cart, user.language)
+            total_price = await sync_to_async(cart.get_total_price)()
+
             await callback.message.edit_text(
                 _("Sizning savatchangiz:"),
-                reply_markup=get_cart_kb(cart_items, user.language, total_price)
+                reply_markup=get_cart_kb(cart_items_data, user.language, total_price)
             )
         else:
             await callback.message.edit_text(
@@ -111,42 +153,43 @@ async def process_cart_item(callback: CallbackQuery, **kwargs):
     item_id = int(callback.data.split('_')[1])
 
     try:
-        # Get cart item using sync_to_async
-        cart_item = await sync_to_async(CartItem.objects.get)(id=item_id)
+        # Get cart item with related data using sync_to_async
+        @sync_to_async
+        def get_cart_item_data():
+            cart_item = CartItem.objects.select_related('color__product').get(id=item_id)
+            return {
+                'id': cart_item.id,
+                'product_name': cart_item.color.product.get_name(user.language),
+                'color_name': cart_item.color.get_name(user.language),
+                'price': cart_item.color.price,
+                'quantity': cart_item.quantity,
+                'has_images': cart_item.color.images.exists(),
+                'first_image_url': cart_item.color.images.first().image.url if cart_item.color.images.exists() else None
+            }
 
-        # Get product name and color
-        product_name = cart_item.color.product.get_name(user.language)
-        color_name = cart_item.color.get_name(user.language)
-        price = cart_item.color.price
-        quantity = cart_item.quantity
-        total = price * quantity
+        item_data = await get_cart_item_data()
 
         # Prepare info message
+        total = item_data['price'] * item_data['quantity']
         message_text = (
-            f"<b>{product_name}</b>\n"
-            f"<i>{color_name}</i>\n"
-            f"{_('Narxi')}: {price:,.0f} {_('so\'m')}\n"
-            f"{_('Soni')}: {quantity}\n"
+            f"<b>{item_data['product_name']}</b>\n"
+            f"<i>{item_data['color_name']}</i>\n"
+            f"{_('Narxi')}: {item_data['price']:,.0f} {_('so\'m')}\n"
+            f"{_('Soni')}: {item_data['quantity']}\n"
             f"{_('Jami')}: {total:,.0f} {_('so\'m')}"
         )
 
-        # Get first product image using sync_to_async
-        has_images = await sync_to_async(lambda: cart_item.color.images.exists())()
-
-        if has_images:
-            first_image = await sync_to_async(lambda: cart_item.color.images.first())()
-            # ImageFieldFile'ni URL'ga aylantirish
-            image_url = first_image.image.url
+        if item_data['has_images'] and item_data['first_image_url']:
             await callback.message.delete()
             await callback.message.answer_photo(
-                photo=image_url,
+                photo=item_data['first_image_url'],
                 caption=message_text,
-                reply_markup=get_cart_item_kb(cart_item.id, user.language)
+                reply_markup=get_cart_item_kb(item_data['id'], user.language)
             )
         else:
             await callback.message.edit_text(
                 message_text,
-                reply_markup=get_cart_item_kb(cart_item.id, user.language)
+                reply_markup=get_cart_item_kb(item_data['id'], user.language)
             )
 
     except CartItem.DoesNotExist:
@@ -199,7 +242,7 @@ async def change_quantity(callback: CallbackQuery, **kwargs):
         # Update quantity using sync_to_async wrapper functions
         @sync_to_async
         def update_quantity():
-            cart_item = CartItem.objects.get(id=item_id)
+            cart_item = CartItem.objects.select_related('color__product').get(id=item_id)
 
             if action == "plus":
                 cart_item.quantity += 1
@@ -304,165 +347,3 @@ async def start_checkout(callback: CallbackQuery, state: FSMContext, **kwargs):
 
     except Cart.DoesNotExist:
         await callback.answer(_("Savatchagiz bo'sh."))
-
-# ... mavjud kod davom etadi ...
-async def process_cart_item(callback: CallbackQuery, **kwargs):
-    """Show cart item details"""
-    user = kwargs.get('user')
-    if not user:
-        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
-        return
-
-    try:
-        item_id = int(callback.data.split('_')[1])
-
-        # Get cart item
-        cart_item = await sync_to_async(CartItem.objects.select_related('color__product').get)(id=item_id)
-
-        # Product info
-        product_name = cart_item.color.product.get_name(user.language)
-        color_name = cart_item.color.get_name(user.language)
-        price = cart_item.color.price
-        quantity = cart_item.quantity
-        total = price * quantity
-
-        text = f"<b>{product_name}</b>\n"
-        text += f"<i>{color_name}</i>\n\n"
-        text += f"💰 {_('Narxi')}: {price:,.0f} {_("so\\'m")}\n"
-        text += f"📦 {_('Soni')}: {quantity}\n"
-        text += f"💳 {_('Jami')}: {total:,.0f} {_("so\\'m")}"
-
-        await callback.message.edit_text(
-            text,
-            reply_markup=
-        get_cart_item_kb(cart_item, user.language)
-        )
-
-    except CartItem.DoesNotExist:
-        await callback.answer(_("Element topilmadi"))
-    except Exception as e:
-        await callback.answer(_("Xatolik yuz berdi"))
-
-
-async def remove_from_cart(callback: CallbackQuery, **kwargs):
-    """Remove item from cart"""
-    user = kwargs.get('user')
-    if not user:
-        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
-        return
-
-    try:
-        item_id = int(callback.data.split('_')[1])
-
-        # Get and delete cart item
-        cart_item = await sync_to_async(CartItem.objects.select_related('color__product').get)(id=item_id)
-        product_name = cart_item.color.product.get_name(user.language)
-
-        await sync_to_async(cart_item.delete)()
-
-        await callback.answer(_("✅ {} savatchadan o'chirildi").format(product_name))
-
-        # Show updated cart
-        await show_cart_callback(callback, **kwargs)
-
-    except CartItem.DoesNotExist:
-        await callback.answer(_("Element topilmadi"))
-    except Exception as e:
-        await callback.answer(_("Xatolik yuz berdi"))
-
-
-async def change_quantity(callback: CallbackQuery, **kwargs):
-    """Change item quantity"""
-    user = kwargs.get('user')
-    if not user:
-        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
-        return
-
-    try:
-        # Parse callback data: quantity_action_itemID
-        parts = callback.data.split('_')
-        action = parts[1]  # minus or plus
-        item_id = int(parts[2])
-
-        # Get cart item
-        cart_item = await sync_to_async(CartItem.objects.get)(id=item_id)
-
-        if action == "minus":
-            if cart_item.quantity > 1:
-                cart_item.quantity -= 1
-                await sync_to_async(cart_item.save)()
-                await callback.answer(_("Soni kamaytrildi"))
-            else:
-                await callback.answer(_("Minimal soni 1 ta"))
-        elif action == "plus":
-            cart_item.quantity += 1
-            await sync_to_async(cart_item.save)()
-            await callback.answer(_("Soni ko'paytirildi"))
-
-        # Update display
-        await process_cart_item(callback, **kwargs)
-
-    except CartItem.DoesNotExist:
-        await callback.answer(_("Element topilmadi"))
-    except Exception as e:
-        await callback.answer(_("Xatolik yuz berdi"))
-
-
-async def clear_cart(callback: CallbackQuery, **kwargs):
-    """Clear entire cart"""
-    user = kwargs.get('user')
-    if not user:
-        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
-        return
-
-    try:
-        # Get cart and delete all items
-        cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
-        await sync_to_async(cart.items.all().delete)()
-
-        await callback.answer(_("✅ Savatcha tozalandi"))
-
-        # Show empty cart message
-        await callback.message.edit_text(
-            _("Sizning savatchagiz bo'sh."),
-            reply_markup=get_main_menu_kb(user.language)
-        )
-
-    except Cart.DoesNotExist:
-        await callback.answer(_("Savatcha topilmadi"))
-    except Exception as e:
-        await callback.answer(_("Xatolik yuz berdi"))
-
-
-async def start_checkout(callback: CallbackQuery, state: FSMContext, **kwargs):
-    """Start checkout process"""
-    user = kwargs.get('user')
-    if not user:
-        await callback.answer(_("Iltimos, botni qaytadan ishga tushiring"))
-        return
-
-    try:
-        # Check if cart has items
-        cart = await sync_to_async(Cart.objects.get)(user=user, is_active=True)
-        cart_items = await sync_to_async(lambda: list(cart.items.all()))()
-
-        if not cart_items:
-            await callback.answer(_("Savatchagiz bo'sh"))
-            return
-
-        # Ask for delivery address
-        if user.language == 'uz':
-            text = "📍 Yetkazib berish manzilini kiriting:"
-        else:
-            text = "📍 Введите адрес доставки:"
-
-        await callback.message.edit_text(text)
-
-        # Set state to waiting for address
-        from bot.handlers.cart import OrderStates
-        await state.set_state(OrderStates.waiting_for_address)
-
-    except Cart.DoesNotExist:
-        await callback.answer(_("Savatcha topilmadi"))
-    except Exception as e:
-        await callback.answer(_("Xatolik yuz berdi"))

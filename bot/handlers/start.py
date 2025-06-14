@@ -1,239 +1,188 @@
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from django.utils.translation import gettext as _
 from asgiref.sync import sync_to_async
 
-from django.utils.translation import gettext as _
 from store.models import User
-from bot.keyboards.common import get_main_menu_kb
+from bot.keyboards.common import get_main_menu_kb, get_language_kb
 
 
 class RegistrationStates(StatesGroup):
-    language = State()
-    name = State()
-    phone = State()
+    waiting_for_contact = State()
+    waiting_for_name = State()
 
 
 def get_start_router():
     router = Router()
 
-    router.message.register(start_cmd, CommandStart())
-    router.message.register(language_selection, RegistrationStates.language)
-    router.message.register(name_input, RegistrationStates.name)
-    router.message.register(phone_handler_contact, RegistrationStates.phone, F.content_type == "contact")
-    router.message.register(phone_handler_text, RegistrationStates.phone)
+    # Register handlers
+    router.message.register(start_command, CommandStart())
+    router.callback_query.register(process_language, F.data.startswith("lang_"))
+    router.message.register(process_contact, RegistrationStates.waiting_for_contact)
+    router.message.register(process_name, RegistrationStates.waiting_for_name)
 
     return router
 
 
-async def start_cmd(message: Message, state: FSMContext):
-    """
-    Start command handler
-    """
-    await state.clear()
+async def start_command(message: Message, state: FSMContext, **kwargs):
+    """Handle /start command"""
+    telegram_user = message.from_user
 
     try:
-        # Use sync_to_async to get user from database
-        user = await sync_to_async(User.objects.get)(telegram_id=message.from_user.id)
+        # Check if user exists using sync_to_async
+        user = await sync_to_async(User.objects.get)(telegram_id=telegram_user.id)
 
-        # User already exists, show welcome message
+        # User exists, show main menu
+        welcome_text = _("Xush kelibsiz!") if user.language == 'uz' else "Добро пожаловать!"
         await message.answer(
-            _("Xush kelibsiz, {name}!").format(name=user.first_name),
+            welcome_text,
             reply_markup=get_main_menu_kb(user.language)
         )
+
     except User.DoesNotExist:
-        # User doesn't exist, start registration process
-        # Set state to language selection
-        await state.set_state(RegistrationStates.language)
-
-        # Show language selection keyboard
-        markup = ReplyKeyboardMarkup(
-            keyboard=[
-                [
-                    KeyboardButton(text="🇺🇿 O'zbekcha"),
-                    KeyboardButton(text="🇷🇺 Русский")
-                ]
-            ],
-            resize_keyboard=True
-        )
-
+        # New user, ask for language
+        await state.clear()  # Clear any existing state
         await message.answer(
-            "Tilni tanlang / Выберите язык",
-            reply_markup=markup
+            "Tilni tanlang / Выберите язык:",
+            reply_markup=get_language_kb()
         )
 
 
-async def language_selection(message: Message, state: FSMContext):
-    """
-    Language selection handler
-    """
-    language = None
+async def process_language(callback: CallbackQuery, state: FSMContext, **kwargs):
+    """Process language selection"""
+    language = callback.data.split('_')[1]  # 'uz' or 'ru'
+    telegram_user = callback.from_user
 
-    if message.text == "🇺🇿 O'zbekcha":
-        language = "uz"
-    elif message.text == "🇷🇺 Русский":
-        language = "ru"
+    # Store language in state for later use
+    await state.update_data(language=language)
 
-    if language:
-        # Save language to state
-        await state.update_data(language=language)
-
-        # Set state to name input
-        await state.set_state(RegistrationStates.name)
-
-        # Show name input message (with translation based on selected language)
-        if language == "uz":
-            await message.answer(
-                "Ismingizni kiriting:",
-                reply_markup=ReplyKeyboardRemove()
-            )
-        else:
-            await message.answer(
-                "Введите ваше имя:",
-                reply_markup=ReplyKeyboardRemove()
-            )
+    # Ask for contact
+    if language == 'uz':
+        text = "📱 Telefon raqamingizni yuboring:"
+        button_text = "📱 Telefon raqamini yuborish"
     else:
-        markup = ReplyKeyboardMarkup(
-            keyboard=[
-                [
-                    KeyboardButton(text="🇺🇿 O'zbekcha"),
-                    KeyboardButton(text="🇷🇺 Русский")
-                ]
-            ],
-            resize_keyboard=True
-        )
+        text = "📱 Отправьте ваш номер телефона:"
+        button_text = "📱 Отправить номер телефона"
+
+    contact_kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=button_text, request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+    await callback.message.edit_text(text, reply_markup=None)
+    await callback.message.answer(
+        "👇 Tugmani bosing / Нажмите кнопку:",
+        reply_markup=contact_kb
+    )
+
+    await state.set_state(RegistrationStates.waiting_for_contact)
+    await callback.answer()
+
+
+async def process_contact(message: Message, state: FSMContext, **kwargs):
+    """Process contact information"""
+    state_data = await state.get_data()
+    language = state_data.get('language', 'uz')
+
+    phone_number = None
+    if message.contact:
+        phone_number = message.contact.phone_number
+    elif message.text and message.text.startswith('+'):
+        phone_number = message.text
+
+    if phone_number:
+        # Store phone in state
+        await state.update_data(phone_number=phone_number)
+
+        # Ask for name
+        if language == 'uz':
+            text = "👤 Ismingizni kiriting:"
+        else:
+            text = "👤 Введите ваше имя:"
 
         await message.answer(
-            "Iltimos, tilni tanlang / Пожалуйста, выберите язык",
-            reply_markup=markup
+            text,
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[[KeyboardButton(text="❌ Bekor qilish" if language == 'uz' else "❌ Отмена")]],
+                resize_keyboard=True
+            )
         )
 
+        await state.set_state(RegistrationStates.waiting_for_name)
+    else:
+        if language == 'uz':
+            error_text = "❌ Iltimos, telefon raqamingizni yuboring!"
+        else:
+            error_text = "❌ Пожалуйста, отправьте ваш номер телефона!"
 
-async def name_input(message: Message, state: FSMContext):
-    """
-    Name input handler
-    """
+        await message.answer(error_text)
+
+
+async def process_name(message: Message, state: FSMContext, **kwargs):
+    """Process name and complete registration"""
+    state_data = await state.get_data()
+    language = state_data.get('language', 'uz')
+    phone_number = state_data.get('phone_number')
+
+    # Check for cancel
+    if message.text in ["❌ Bekor qilish", "❌ Отмена"]:
+        await message.answer(
+            "Ro'yxatdan o'tish bekor qilindi." if language == 'uz' else "Регистрация отменена.",
+            reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="/start")]], resize_keyboard=True)
+        )
+        await state.clear()
+        return
+
     name = message.text.strip()
 
-    if len(name) < 2:
-        # Name is too short
-        state_data = await state.get_data()
-        language = state_data.get("language", "uz")
+    if name and len(name) > 0:
+        telegram_user = message.from_user
 
-        if language == "uz":
-            await message.answer("Ism kamida 2 ta belgidan iborat bo'lishi kerak. Qaytadan kiriting:")
+        # Create user using sync_to_async
+        @sync_to_async
+        def create_user():
+            user, created = User.objects.get_or_create(
+                telegram_id=telegram_user.id,
+                defaults={
+                    'username': telegram_user.username or f"user_{telegram_user.id}",
+                    'first_name': name,
+                    'last_name': telegram_user.last_name or '',
+                    'language': language,
+                    'phone_number': phone_number
+                }
+            )
+
+            if not created:
+                # Update existing user
+                user.first_name = name
+                user.language = language
+                user.phone_number = phone_number
+                user.save()
+
+            return user
+
+        user = await create_user()
+
+        # Registration complete
+        if language == 'uz':
+            welcome_text = f"✅ Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!\n\nXush kelibsiz, {name}!"
         else:
-            await message.answer("Имя должно содержать минимум 2 символа. Введите снова:")
-        return
+            welcome_text = f"✅ Регистрация успешно завершена!\n\nДобро пожаловать, {name}!"
 
-    # Save name to state
-    await state.update_data(first_name=name)
-
-    # Set state to phone input
-    await state.set_state(RegistrationStates.phone)
-
-    # Show phone input message
-    state_data = await state.get_data()
-    language = state_data.get("language", "uz")
-
-    # Create keyboard with contact sharing button
-    markup = ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text="📱 Raqamni yuborish" if language == "uz" else "📱 Отправить номер",
-                    request_contact=True
-                )
-            ]
-        ],
-        resize_keyboard=True
-    )
-
-    if language == "uz":
         await message.answer(
-            "Telefon raqamingizni yuboring yoki kiriting (+998XXXXXXXXX formatida):",
-            reply_markup=markup
+            welcome_text,
+            reply_markup=get_main_menu_kb(language)
         )
+
+        await state.clear()
     else:
-        await message.answer(
-            "Отправьте или введите ваш номер телефона (в формате +998XXXXXXXXX):",
-            reply_markup=markup
-        )
-
-
-async def phone_handler_contact(message: Message, state: FSMContext):
-    """
-    Phone handler for contact sharing
-    """
-    phone_number = message.contact.phone_number
-
-    # Save phone to state
-    await state.update_data(phone_number=phone_number)
-
-    # Get all data from state
-    state_data = await state.get_data()
-    language = state_data.get("language", "uz")
-    first_name = state_data.get("first_name", "")
-
-    # Create user
-    user = await sync_to_async(User.objects.create)(
-        telegram_id=message.from_user.id,
-        first_name=first_name,
-        phone_number=phone_number,
-        language=language
-    )
-
-    # Clear state
-    await state.clear()
-
-    # Show welcome message
-    await message.answer(
-        _("Xush kelibsiz, {name}!").format(name=user.first_name),
-        reply_markup=get_main_menu_kb(user.language)
-    )
-
-
-async def phone_handler_text(message: Message, state: FSMContext):
-    """
-    Phone handler for manual input
-    """
-    phone_number = message.text.strip()
-
-    # Validate phone number
-    if not (phone_number.startswith("+") and len(phone_number) >= 12 and phone_number[1:].isdigit()):
-        # Invalid phone number
-        state_data = await state.get_data()
-        language = state_data.get("language", "uz")
-
-        if language == "uz":
-            await message.answer("Noto'g'ri telefon raqami formati. Qaytadan kiriting (+998XXXXXXXXX formatida):")
+        if language == 'uz':
+            error_text = "❌ Iltimos, haqiqiy ismingizni kiriting!"
         else:
-            await message.answer("Неверный формат номера телефона. Введите снова (в формате +998XXXXXXXXX):")
-        return
+            error_text = "❌ Пожалуйста, введите ваше настоящее имя!"
 
-    # Save phone to state
-    await state.update_data(phone_number=phone_number)
-
-    # Get all data from state
-    state_data = await state.get_data()
-    language = state_data.get("language", "uz")
-    first_name = state_data.get("first_name", "")
-
-    # Create user
-    user = await sync_to_async(User.objects.create)(
-        telegram_id=message.from_user.id,
-        first_name=first_name,
-        phone_number=phone_number,
-        language=language
-    )
-
-    # Clear state
-    await state.clear()
-
-    # Show welcome message
-    await message.answer(
-        _("Xush kelibsiz, {name}!").format(name=user.first_name),
-        reply_markup=get_main_menu_kb(user.language)
-    )
+        await message.answer(error_text)

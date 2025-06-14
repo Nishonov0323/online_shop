@@ -1,16 +1,21 @@
 import asyncio
 import logging
-from django.core.management.base import BaseCommand
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-
 from django.conf import settings
+from django.core.management.base import BaseCommand
+from bot.handlers import (
+    get_start_router,
+    get_categories_router,
+    get_products_router,
+    get_cart_router,
+    get_orders_router,
+    get_contact_router,
+    get_settings_router
+)
 from bot.middlewares.authentication import AuthenticationMiddleware
-from bot.handlers.start import get_start_router
-from bot.handlers.categories import get_categories_router
-from bot.handlers.products import get_products_router
-from bot.handlers.cart import get_cart_router
-from bot.handlers.orders import get_orders_router
+
 
 class Command(BaseCommand):
     help = 'Run Telegram bot'
@@ -43,6 +48,9 @@ class Command(BaseCommand):
         dp.include_router(get_products_router())
         dp.include_router(get_cart_router())
         dp.include_router(get_orders_router())
+        dp.include_router(get_contact_router())
+        dp.include_router(get_settings_router())
+
 
         # Start polling
         self.stdout.write('Bot started!')
