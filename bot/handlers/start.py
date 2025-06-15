@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command  # Command qo'shildi
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from django.utils.translation import gettext as _
@@ -20,11 +20,91 @@ def get_start_router():
 
     # Register handlers
     router.message.register(start_command, CommandStart())
+    router.message.register(help_command, Command("help"))  # Help command qo'shildi
     router.callback_query.register(process_language, F.data.startswith("lang_"))
     router.message.register(process_contact, RegistrationStates.waiting_for_contact)
     router.message.register(process_name, RegistrationStates.waiting_for_name)
 
     return router
+
+
+async def help_command(message: Message, **kwargs):
+    """Handle /help command - show bot information and available commands"""
+    telegram_user = message.from_user
+
+    try:
+        # Get user to determine language
+        user = await sync_to_async(User.objects.get)(telegram_id=telegram_user.id)
+        language = user.language
+    except User.DoesNotExist:
+        # Default to Uzbek for unregistered users
+        language = 'uz'
+
+    # Prepare help text based on language
+    if language == 'uz':
+        help_text = """
+🤖 <b>Online Do'kon Bot Haqida</b>
+
+Salom! Men sizning online do'kon botingizman. Men orqali siz:
+
+📋 <b>Asosiy funksiyalar:</b>
+• 🛍️ Mahsulotlarni ko'rish va sotib olish
+• 🗂️ Kategoriyalar bo'yicha qidirish
+• 🛒 Savatga mahsulot qo'shish
+• 📦 Buyurtmalarni boshqarish
+• ⚙️ Sozlamalarni o'zgartirish
+• 📞 Biz bilan bog'lanish
+
+🎯 <b>Qanday foydalanish:</b>
+1. /start - Ishni boshlash
+2. Asosiy menyudan kerakli bo'limni tanlang
+3. Mahsulotlarni ko'ring va savatga qo'shing
+4. Buyurtma berish uchun savatga o'ting
+
+💡 <b>Maslahatlar:</b>
+• Mahsulotlarni kategoriyalar bo'yicha qidiring
+• Savatdagi mahsulotlar sonini nazorat qiling
+• Buyurtma tarixingizni ko'rib turing
+• Sozlamalarda tilni o'zgartirishingiz mumkin
+
+📞 <b>Yordam kerakmi?</b>
+"📞 Bog'lanish" bo'limidan biz bilan bog'laning!
+
+Xarid qilishingiz bilan! 🛒✨
+        """
+    else:
+        help_text = """
+🤖 <b>О боте интернет-магазина</b>
+
+Привет! Я ваш бот интернет-магазина. Через меня вы можете:
+
+📋 <b>Основные функции:</b>
+• 🛍️ Просмотр и покупка товаров
+• 🗂️ Поиск по категориям
+• 🛒 Добавление товаров в корзину
+• 📦 Управление заказами
+• ⚙️ Изменение настроек
+• 📞 Связь с нами
+
+🎯 <b>Как пользоваться:</b>
+1. /start - Начать работу
+2. Выберите нужный раздел из главного меню
+3. Просматривайте товары и добавляйте в корзину
+4. Перейдите в корзину для оформления заказа
+
+💡 <b>Советы:</b>
+• Ищите товары по категориям
+• Следите за количеством товаров в корзине
+• Просматривайте историю своих заказов
+• Можете изменить язык в настройках
+
+📞 <b>Нужна помощь?</b>
+Свяжитесь с нами через раздел "📞 Связаться"!
+
+Приятных покупок! 🛒✨
+        """
+
+    await message.answer(help_text)
 
 
 async def start_command(message: Message, state: FSMContext, **kwargs):

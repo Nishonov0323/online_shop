@@ -6,7 +6,6 @@ from .cart import get_cart_router
 from .orders import get_orders_router
 from .contact import get_contact_router
 from .settings import get_settings_router
-from .help import get_help_router
 
 __all__ = [
     'get_start_router',
@@ -16,5 +15,4 @@ __all__ = [
     'get_orders_router',
     'get_contact_router',
     'get_settings_router',
-    'get_help_router'
 ]
