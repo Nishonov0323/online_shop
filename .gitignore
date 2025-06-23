@@ -181,3 +181,7 @@ ehthumbs_vista.db
 
 # Docker
 .dockerignore
+
+# Django migrations
+*/migrations/*.py
+!*/migrations/__init__.py

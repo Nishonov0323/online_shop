@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - API Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.3rem;
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+        }
+
+        .api-badges {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .api-badge {
+            background: rgba(255, 215, 0, 0.2);
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 0.4rem 1rem;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .card h3 {
+            margin-bottom: 1.5rem;
+            color: #ffd700;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .endpoints, .features {
+            list-style: none;
+        }
+
+        .endpoints li {
+            margin: 0.8rem 0;
+        }
+
+        .endpoints a {
+            color: white;
+            text-decoration: none;
+            padding: 0.7rem 1.2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            display: inline-block;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .endpoints a:hover {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: #ffd700;
+            transform: translateY(-2px);
+            color: #ffd700;
+        }
+
+        .features li {
+            margin: 0.6rem 0;
+            padding: 0.7rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border-left: 3px solid #4CAF50;
+            transition: background 0.3s ease;
+        }
+
+        .features li:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .features li:before {
+            content: "✓";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 0.7rem;
+            font-size: 1.1rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffd700;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .footer a {
+            color: #ffd700;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .github-link {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.7rem 1.5rem;
+            background: #333;
+            color: white;
+            border-radius: 25px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .github-link:hover {
+            background: #555;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 {{ title }}</h1>
+            <p>{{ description }}</p>
+            <div class="api-badges">
+                <span class="api-badge">🚀 REST API</span>
+                <span class="api-badge">📖 Swagger UI</span>
+                <span class="api-badge">📋 Redoc</span>
+                <span class="api-badge">⚙️ Admin Panel</span>
+                <span class="api-badge">🔧 DRF Spectacular</span>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-number">7</span>
+                <div class="stat-label">API Endpoints</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">3</span>
+                <div class="stat-label">Dokumentatsiya</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">1</span>
+                <div class="stat-label">Admin Panel</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">∞</span>
+                <div class="stat-label">Imkoniyatlar</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>📚 API Dokumentatsiya</h3>
+                <ul class="endpoints">
+                    <li><a href="{{ endpoints.swagger }}" target="_blank">📖 Swagger UI (Spectacular)</a></li>
+                    <li><a href="{{ endpoints.redoc }}" target="_blank">📋 Redoc Dokumentatsiya</a></li>
+                    <li><a href="{{ endpoints.schema }}" target="_blank">🔗 OpenAPI Schema</a></li>
+                    <li><a href="{{ endpoints.api }}" target="_blank">ℹ️ API Ma'lumotlari</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>⚙️ Boshqaruv Paneli</h3>
+                <ul class="endpoints">
+                    <li><a href="{{ endpoints.admin }}" target="_blank">🔧 Django Admin</a></li>
+                    <li><a href="/admin/api/" target="_blank">📦 API Models</a></li>
+                    <li><a href="/admin/auth/" target="_blank">👥 Foydalanuvchilar</a></li>
+                    <li><a href="/api-auth/" target="_blank">🔐 DRF Auth</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>🎯 API Xususiyatlari</h3>
+                <ul class="features">
+                    {% for feature in features %}
+                    <li>{{ feature }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🏗️ <strong>Nishonov0323</strong> tomonidan yaratilgan</p>
+            <p>🔧 Django REST Framework + DRF Spectacular</p>
+            <p>📅 2025-06-23 | ⏰ 10:35 UTC</p>
+            <a href="https://github.com/Nishonov0323/online_shop" class="github-link" target="_blank">
+                📁 GitHub Repository
+            </a>
+        </div>
+    </div>
+</body>
+</html>
