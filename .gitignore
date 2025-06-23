@@ -185,3 +185,6 @@ ehthumbs_vista.db
 # Django migrations
 */migrations/*.py
 !*/migrations/__init__.py
+
+# SQL files
+*.sql
