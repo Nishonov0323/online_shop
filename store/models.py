@@ -5,7 +5,9 @@ from django.utils.translation import gettext_lazy as _
 class User(models.Model):
     """User model for storing Telegram user data"""
     telegram_id = models.BigIntegerField(unique=True)
+    username = models.CharField(max_length=100, blank=True, null=True)  # Qo'shildi
     first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True, null=True)  # Qo'shildi
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     language = models.CharField(max_length=5, choices=[('uz', 'Uzbek'), ('ru', 'Russian')], default='uz')
     is_active = models.BooleanField(default=True)
@@ -92,17 +94,16 @@ class Color(models.Model):
         return getattr(self, f'name_{language}')
 
 
-# ColorImage modelini yangilash (agar kerak bo'lsa)
 class ColorImage(models.Model):
     """Images for product colors"""
     color = models.ForeignKey(Color, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='product_colors/')
-    order = models.PositiveIntegerField(default=0)  # Bu qatorni qo'shing
+    order = models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = _("Rang rasmi")
         verbose_name_plural = _("Rang rasmlari")
-        ordering = ['order']  # Tartib bo'yicha saralash
+        ordering = ['order']
 
     def __str__(self):
         return f"{self.color} - {self.id}"
